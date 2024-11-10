@@ -2,12 +2,12 @@ import pandas as pd
 from openpyxl import load_workbook
 
 # Cargar el archivo de Excel con pandas
-archivo = 'GSAF5.xls'
-df = pd.read_excel(archivo, sheet_name='Hoja1')  # Cambia por tu hoja
+archivo = 'GSAF5.xlsx'
+GSAF= pd.read_excel(archivo, sheet_name='Sheet1-GSAF')  
 
-# Cargar el archivo de Excel con openpyxl para obtener el color de la celda
+# Cargar el archivo de Excel con openpyxl
 libro = load_workbook(archivo, data_only=True)
-hoja = libro['Hoja1']  # Cambia por el nombre de tu hoja
+hoja = libro['Sheet1-GSAF'] 
 
 # Función para obtener el color de fondo de una celda específica
 def obtener_color_fondo(fila, columna):
@@ -15,7 +15,6 @@ def obtener_color_fondo(fila, columna):
     return celda.fill.start_color.rgb if celda.fill.start_color else None
 
 # Crear una nueva columna en el DataFrame con los colores de cada celda en la primera columna
-df['ColorFondo'] = [obtener_color_fondo(i, 0) for i in range(len(df))]
-
-# Mostrar el DataFrame con la nueva columna de colores
-print(df)
+GSAF=GSAF[['Date','year','State','Location','Type','Activity','Name','Sex','Age','Injury','Fatal','Time','Species','Source']]
+GSAF['ColorFondo'] = [obtener_color_fondo(i, 0) for i in range(len(GSAF))]
+GSAF.to_excel('GSAF5.xlsx',index =False)
