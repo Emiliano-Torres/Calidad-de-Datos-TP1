@@ -89,7 +89,7 @@ ax.set_xlabel("Cantidad de ataques")
 plt.tight_layout()
 #%%procesamiento para graficar
 #le asignamos un id a cada pais ara ubicarlo en el grafico
-paises_distintos=sql^"""SELECT DISTINCT Country FROM cantidad_incidentes_por_tipo_por_pais ORDER BY Cantidad asc"""
+paises_distintos=sql^"""SELECT DISTINCT Country FROM cantidad_incidentes_por_tipo_por_pais ORDER BY Cantidad ASC"""
 
 id_paises={}
 paises_id={}
@@ -141,3 +141,17 @@ for i in range(len(Questianble_paises)):
     dict_Questionable[paises_id[pais]]=valor
 
 fig , ax=plt.subplots()
+#Unprovouked
+[x for x in dict_unprovoked.keys()]
+ax.scatter([x for x in dict_unprovoked.keys()],[x for x in dict_unprovoked.values()],color="tan")
+ax.scatter([x for x in dict_Questionable.keys()],[x for x in dict_Questionable.values()],color="blue")
+ax.scatter([x for x in dict_sea_disaster.keys()],[x for x in dict_sea_disaster.values()],color="gold")
+ax.scatter([x for x in dict_att_on_boat.keys()],[x for x in dict_att_on_boat.values()],color="lawngreen")
+ax.scatter([x for x in dict_provoked.keys()],[x for x in dict_provoked.values()],color="orange")
+ax.yticks=([range(1,len(paises_distintos)+1)])
+ax.set_yticklabels(([id_paises[x] for x in dict_unprovoked.keys()]+
+                    [id_paises[x] for x in dict_Questionable.keys()]+
+                    [id_paises[x] for x in dict_sea_disaster.keys()]+
+                    [id_paises[x] for x in dict_att_on_boat.keys()]+
+                    [id_paises[x] for x in dict_provoked.keys()]))
+plt.tight_layout()
