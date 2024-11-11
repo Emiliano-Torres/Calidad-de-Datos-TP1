@@ -13,7 +13,7 @@ GSAF=GSAF.rename(columns={"Column 6":"ColorFondo"})
 GSAF=GSAF[['Type','Country','ColorFondo']]
 
 
-#%%
+#%%Vemos si es correcto borrar las filas sin paises
 
 longitud_antes_de_borrar=len(GSAF)
 #borramos los que no tienen paises por ser menos del 1%
@@ -45,8 +45,11 @@ porcentaje_inconsistencias=len(filas_inconsistentes)/len(GSAF)*100
 
 invalid_azul=[x[0] for x in filas_inconsistentes if x[1]=="INVALID" and x[2]==16764057]
 porcentaje_invalid_azul=len(invalid_azul)/len(filas_inconsistentes)*100
-#Hay un 99,27 de invalid azules, decidimos poner como cuestionable toda la lista
-#Ya que hay menos de un 1% de error
+#Hay un 95,27 de invalid azules
+#nos gustaria por simplicidad poner toda la lista como azul y questionable
+porcentaje_error_poner_azul_toda_la_lista=((100-95.27)/100 *len(filas_inconsistentes)/len(GSAF))*100 
+#Pasariamos del 8 porciento de incosistencia al 0.39% de incosistencia
+#lo cual es aceptable para nuestro analisis
 #%% Veamos que hacer con los paises dobles y continentes
 paises_dobles=sql^"""SELECT Country FROM GSAF WHERE Country LIKE '%/%'"""
 continentes=sql^"""SELECT Country FROM GSAF 
@@ -71,87 +74,67 @@ for index, _ in GSAF.iterrows():
 for index, _, _ in filas_inconsistentes:
     GSAF.loc[index,"Type"]="QUESTIONABLE"
     GSAF.loc[index,"ColorFondo"]=16764057
-
 #%% Con un error acumulado de menos del 2% aprox 140 casos hacemos los graficos
 cantidad_incidentes_por_tipo=sql^ """SELECT Type, COUNT(Country) AS Cantidad FROM GSAF GROUP BY TYPE ORDER BY Cantidad ASC"""
 
 cantidad_incidentes_por_tipo_por_pais=sql^ """SELECT Country, Type, COUNT(Country) AS Cantidad FROM GSAF GROUP BY  Country, Type HAVING Cantidad>0 ORDER BY Cantidad DESC  """
-
+#Ya que hay menos de un 1% de error con respecto al dataframe total
+porcentaje_incosistencia_restante=((1-porcentaje_inconsistencias/100)*len(filas_inconsistentes)/len(GSAF))*100
 #%% Hacemos un grafico de el resultado para nuestro primer objetivo
 fig, ax = plt.subplots()
+#hacemos el grafico de barras
 barras=ax.barh([1,2,3,4,5],cantidad_incidentes_por_tipo["Cantidad"],color=["gold","lawngreen","blue","orange","tan"])
 etiquetas_y=list(cantidad_incidentes_por_tipo["Type"])
 ax.bar_label(barras, padding=0, label_type='edge',rotation=270)
+#ponemos ticks y etiquetsa
 ax.set_yticks([1,2,3,4,5])
 ax.set_yticklabels(etiquetas_y)
 ax.set_ylabel("Tipo de ataque")
 ax.set_xlabel("Cantidad de ataques")
 plt.tight_layout()
 #%%procesamiento para graficar
-#le asignamos un id a cada pais ara ubicarlo en el grafico
-paises_distintos=sql^"""SELECT DISTINCT Country FROM cantidad_incidentes_por_tipo_por_pais ORDER BY Cantidad ASC"""
 
-id_paises={}
-paises_id={}
-for id in range(1,len(paises_distintos)+1):
-    pais=paises_distintos.iloc[id-1,0]
-    id_paises[id]=pais
-    paises_id[pais]=id
 
-dict_provoked={}
-dict_unprovoked={}
-dict_att_on_boat={}
-dict_sea_disaster={}
-dict_Questionable={}
+df_paises_incidendes =cantidad_incidentes_por_tipo_por_pais #cambiamos el nombre por practicidad
+df_paises_incidendes_pivot = df_paises_incidendes.pivot_table(index='Country', columns='Type', values='Cantidad', aggfunc='sum', fill_value=0)
 
-Provoked_paises=sql^"""SELECT DISTINCT Country, Cantidad FROM cantidad_incidentes_por_tipo_por_pais WHERE Type='PROVOKED'""" 
-Unprovoked_paises=sql^"""SELECT DISTINCT Country, Cantidad  FROM cantidad_incidentes_por_tipo_por_pais WHERE Type='UNPROVOKED'"""
-Sea_disaster_paises=sql^"""SELECT DISTINCT Country, Cantidad  FROM cantidad_incidentes_por_tipo_por_pais WHERE Type='SEA DISASTER'"""
-Att_on_boat_paises=sql^"""SELECT DISTINCT Country, Cantidad  FROM cantidad_incidentes_por_tipo_por_pais WHERE Type='ATTACKS ON BOAT'"""
-Questianble_paises=sql^"""SELECT DISTINCT Country, Cantidad  FROM cantidad_incidentes_por_tipo_por_pais WHERE Type='QUESTIONABLE'"""
+#sumamos el total de incidentes por país (sumar todas las columnas)
+df_paises_incidendes_pivot['total'] = df_paises_incidendes_pivot.sum(axis=1)
 
-for i in range(len(Provoked_paises)):
-    fila=Provoked_paises.iloc[i]
-    pais=fila[0]
-    valor=fila[1]
-    dict_provoked[paises_id[pais]]=valor
+#Ordenamos por el total de incidentes (de mayor a menor) y seleccionar los 20 primeros países
+df_paises_incidendes_top_10 = df_paises_incidendes_pivot.sort_values(by='total', ascending=False).head(20)
 
-for i in range(len(Unprovoked_paises)):
-    fila=Unprovoked_paises.iloc[i]
-    pais=fila[0]
-    valor=fila[1]
-    dict_unprovoked[paises_id[pais]]=valor
+#Creamos el gráfico de barras apiladas para los 20 países más rankeados
+ax = df_paises_incidendes_top_10.drop(columns='total').plot(kind='bar', stacked=True, figsize=(10, 6), color=["lawngreen","orange","blue","gold","tan"])
 
-for i in range(len(Att_on_boat_paises)):
-    fila=Att_on_boat_paises.iloc[i]
-    pais=fila[0]
-    valor=fila[1]
-    dict_att_on_boat[paises_id[pais]]=valor
-    
-for i in range(len(Sea_disaster_paises)):
-    fila=Sea_disaster_paises.iloc[i]
-    pais=fila[0]
-    valor=fila[1]
-    dict_sea_disaster[paises_id[pais]]=valor
-    
-for i in range(len(Questianble_paises)):
-    fila=Questianble_paises.iloc[i]
-    pais=fila[0]
-    valor=fila[1]
-    dict_Questionable[paises_id[pais]]=valor
+#Añadimos títulos y etiquetas
+ax.set_title('Top 20 Países con más Incidentes por Tipo')
+ax.set_ylabel('Cantidad de Incidentes')
+ax.set_xlabel('Países')
 
-fig , ax=plt.subplots()
-#Unprovouked
-[x for x in dict_unprovoked.keys()]
-ax.scatter([x for x in dict_unprovoked.keys()],[x for x in dict_unprovoked.values()],color="tan")
-ax.scatter([x for x in dict_Questionable.keys()],[x for x in dict_Questionable.values()],color="blue")
-ax.scatter([x for x in dict_sea_disaster.keys()],[x for x in dict_sea_disaster.values()],color="gold")
-ax.scatter([x for x in dict_att_on_boat.keys()],[x for x in dict_att_on_boat.values()],color="lawngreen")
-ax.scatter([x for x in dict_provoked.keys()],[x for x in dict_provoked.values()],color="orange")
-ax.yticks=([range(1,len(paises_distintos)+1)])
-ax.set_yticklabels(([id_paises[x] for x in dict_unprovoked.keys()]+
-                    [id_paises[x] for x in dict_Questionable.keys()]+
-                    [id_paises[x] for x in dict_sea_disaster.keys()]+
-                    [id_paises[x] for x in dict_att_on_boat.keys()]+
-                    [id_paises[x] for x in dict_provoked.keys()]))
+#Mostramos el gráfico
+plt.xticks(rotation=45,ha='right')
 plt.tight_layout()
+plt.show()
+#%% Repetimos el proceso eliminando los 3 paises más rankeados
+
+df_paises_incidendes_pivot['total'] = df_paises_incidendes_pivot.sum(axis=1)
+
+
+df_paises_incidendes_pivot_sorted = df_paises_incidendes_pivot.sort_values(by='total', ascending=False)
+
+#Eliminamos los 3 países más rankeados
+df_paises_incidendes_filtered = df_paises_incidendes_pivot_sorted.iloc[3:20]
+
+
+ax = df_paises_incidendes_filtered.drop(columns='total').plot(kind='bar', stacked=True, figsize=(10, 6), color=["lawngreen","orange","blue","gold","tan"])
+
+
+ax.set_title('Países con más Incidentes (Excluyendo los 3 más rankeados)')
+ax.set_ylabel('Cantidad de Incidentes')
+ax.set_xlabel('Países')
+ax.bar_label(barras, padding=0, label_type='edge',rotation=270)
+
+plt.xticks(rotation=45,ha="right")
+plt.tight_layout()
+plt.show()
